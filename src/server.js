@@ -102,6 +102,18 @@ app.post('/procesar', (req, res) => {
   } else if (typeof jsonMalla === 'string') {
     const parsed = parseLooseJsonMalla(jsonMalla);
     statuses = parsed && Array.isArray(parsed.statuses) ? parsed.statuses : [];
+    // Fallback adicional: extraer pares globalmente si no se obtuvo nada
+    if (statuses.length === 0) {
+      const pairs = [];
+      const re = /jobId=([^,}\s]+)[\s\S]*?name=([^,}\n]+)/g;
+      let m;
+      while ((m = re.exec(jsonMalla)) !== null) {
+        pairs.push({ jobId: (m[1] || '').trim(), name: (m[2] || '').trim() });
+      }
+      if (pairs.length > 0) {
+        statuses = pairs;
+      }
+    }
   }
   const statusesFromSecond = statuses.slice(1);
   const normalize = v => String(v ?? '').trim().replace(/^"|"$/g, '').toLowerCase();
