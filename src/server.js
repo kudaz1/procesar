@@ -74,6 +74,27 @@ function parseLooseJsonMalla(input) {
   }
 }
 
+// Parser definitivo: recorre por delimitadores de 'jobId=' y empareja con el primer 'name='
+function parseByJobIdBoundaries(input) {
+  if (typeof input !== 'string') return [];
+  const result = [];
+  const key = 'jobId=';
+  let idx = 0;
+  while (true) {
+    const start = input.indexOf(key, idx);
+    if (start === -1) break;
+    const next = input.indexOf(key, start + key.length);
+    const segment = input.slice(start + key.length, next === -1 ? input.length : next);
+    const jobId = segment.split(/[,}\s]/)[0]?.trim();
+    const nameMatch = segment.match(/name=([^,}\n]+)/);
+    const name = nameMatch ? nameMatch[1].trim() : undefined;
+    result.push({ jobId, name });
+    if (next === -1) break;
+    idx = next;
+  }
+  return result;
+}
+
 // Healthcheck
 app.get('/', (_req, res) => {
   res.json({ status: 'ok' });
@@ -100,18 +121,22 @@ app.post('/procesar', (req, res) => {
   if (jsonMalla && Array.isArray(jsonMalla.statuses)) {
     statuses = jsonMalla.statuses;
   } else if (typeof jsonMalla === 'string') {
-    const parsed = parseLooseJsonMalla(jsonMalla);
-    statuses = parsed && Array.isArray(parsed.statuses) ? parsed.statuses : [];
-    // Fallback adicional: extraer pares globalmente si no se obtuvo nada
-    if (statuses.length === 0) {
-      const pairs = [];
-      const re = /jobId=([^,}\s]+)[\s\S]*?name=([^,}\n]+)/g;
-      let m;
-      while ((m = re.exec(jsonMalla)) !== null) {
-        pairs.push({ jobId: (m[1] || '').trim(), name: (m[2] || '').trim() });
-      }
-      if (pairs.length > 0) {
-        statuses = pairs;
+    // 1) Parser por límites de jobId (preferido)
+    statuses = parseByJobIdBoundaries(jsonMalla);
+    // 2) Si falla, usar parser previo y/o regex global
+    if (!Array.isArray(statuses) || statuses.length === 0) {
+      const parsed = parseLooseJsonMalla(jsonMalla);
+      statuses = parsed && Array.isArray(parsed.statuses) ? parsed.statuses : [];
+      if (statuses.length === 0) {
+        const pairs = [];
+        const re = /jobId=([^,}\s]+)[\s\S]*?name=([^,}\n]+)/g;
+        let m;
+        while ((m = re.exec(jsonMalla)) !== null) {
+          pairs.push({ jobId: (m[1] || '').trim(), name: (m[2] || '').trim() });
+        }
+        if (pairs.length > 0) {
+          statuses = pairs;
+        }
       }
     }
   }
