@@ -16,17 +16,16 @@ app.post('/procesar', (req, res) => {
   if (typeof nombreJob !== 'string' || !nombreJob.trim()) {
     return res.status(400).json({ error: 'nombreJob es requerido y debe ser string' });
   }
-  if (!jsonMalla || !Array.isArray(jsonMalla.statuses)) {
-    return res.status(400).json({ error: 'jsonMalla.statuses es requerido y debe ser un arreglo' });
-  }
+  // No validar estructura de jsonMalla: tratar faltantes como vacíos
 
-  const requestedJobs = nombreJob
+  const requestedJobs = String(nombreJob || '')
     .split(',')
     .map(s => s.trim())
     .filter(s => s.length > 0);
 
   // Ignora el primer elemento global de statuses y filtra por los nombreJob indicados
-  const statusesFromSecond = jsonMalla.statuses.slice(1);
+  const statuses = (jsonMalla && Array.isArray(jsonMalla.statuses)) ? jsonMalla.statuses : [];
+  const statusesFromSecond = statuses.slice(1);
   const namesSet = new Set(requestedJobs);
   const jobIds = statusesFromSecond
     .filter(s => s && typeof s.name === 'string' && namesSet.has(s.name))
