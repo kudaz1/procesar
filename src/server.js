@@ -50,12 +50,23 @@ function parseLooseJsonMalla(input) {
       }
     }
 
-    for (const item of chunks) {
-      const jobIdMatch = item.match(/(?:^|,)\s*jobId=([^,}]+)/);
-      const nameMatch = item.match(/(?:^|,)\s*name=([^,}]+)/);
-      const jobId = jobIdMatch ? jobIdMatch[1].trim() : undefined;
-      const name = nameMatch ? nameMatch[1].trim() : undefined;
-      result.statuses.push({ jobId, name });
+    if (chunks.length > 0) {
+      for (const item of chunks) {
+        const jobIdMatch = item.match(/(?:^|,)\s*jobId=([^,}]+)/);
+        const nameMatch = item.match(/(?:^|,)\s*name=([^,}]+)/);
+        const jobId = jobIdMatch ? jobIdMatch[1].trim() : undefined;
+        const name = nameMatch ? nameMatch[1].trim() : undefined;
+        result.statuses.push({ jobId, name });
+      }
+    } else {
+      // Fallback: regex por pares jobId...name dentro del texto de statuses
+      const pairRegex = /jobId=([^,}]+)[\s\S]*?name=([^,}\n]+)/g;
+      let m;
+      while ((m = pairRegex.exec(inner)) !== null) {
+        const jobId = (m[1] || '').trim();
+        const name = (m[2] || '').trim();
+        result.statuses.push({ jobId, name });
+      }
     }
     return result;
   } catch (_) {
